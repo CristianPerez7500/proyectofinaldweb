@@ -136,7 +136,7 @@ app.post('/register', async (req, res) => {
     const secretKey = '6LfBqiUsAAAAAJMFN976FIerb814sPogOULwvg6-'; // TU CLAVE SECRETA
 
     try {
-        const verificationURL = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}&remoteip=${req.connection.remoteAddress}`;
+        const verificationURL = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}`;
         const captchaVerification = await axios.post(verificationURL);
         if (!captchaVerification.data.success) return res.status(400).json({ message: 'Captcha inválido.' });
 
@@ -212,7 +212,7 @@ app.post('/login', (req, res) => {
     const { username, password, 'g-recaptcha-response': captchaResponse } = req.body;
     const secretKey = '6LewYhssAAAAAL8X2VOqnewU8Vf0t6-3ahlhgE2n'; // TU CLAVE SECRETA
 
-    axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}&remoteip=${req.connection.remoteAddress}`)
+    axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}`)
         .then(response => {
             if (!response.data.success) return res.status(400).json({ message: 'Captcha inválido.' });
 
