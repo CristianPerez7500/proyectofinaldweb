@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GettMex POS | Sistema Seguro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        dark: { 900: '#0f172a', 800: '#1e293b', 700: '#334155' },
+                        brand: { primary: '#3b82f6', hover: '#2563eb', accent: '#06b6d4' },
+                        status: { success: '#10b981', danger: '#ef4444' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .view-section { display: none; height: 100%; flex-direction: column; }
+        .view-section.active { display: flex; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="h-screen overflow-hidden selection:bg-brand-primary selection:text-white">
+
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <div id="app-layout" class="flex h-full">
+        
+        <aside class="w-20 lg:w-64 bg-dark-800 border-r border-dark-700 flex flex-col justify-between z-30">
+            <div>
+                <div class="h-16 flex items-center justify-center lg:justify-start lg:px-6 border-b border-dark-700">
+                    <i class="fa-solid fa-layer-group text-brand-primary text-2xl lg:mr-3"></i>
+                    <span class="hidden lg:block font-bold text-lg text-white">GettMex POS</span>
+                </div>
+                <nav class="p-4 space-y-2">
+                    <button onclick="switchView('pos')" id="nav-pos" class="w-full flex items-center p-3 rounded-xl text-brand-primary bg-brand-primary/10 group">
+                        <i class="fa-solid fa-cash-register text-xl w-6 text-center"></i>
+                        <span class="hidden lg:block ml-3 font-medium">Punto de Venta</span>
+                    </button>
+                    <button onclick="switchView('history')" id="nav-history" class="w-full flex items-center p-3 rounded-xl text-slate-400 hover:text-white hover:bg-dark-700 group">
+                        <i class="fa-solid fa-clock-rotate-left text-xl w-6 text-center"></i>
+                        <span class="hidden lg:block ml-3 font-medium">Historial</span>
+                    </button>
+                </nav>
+            </div>
+            <div class="p-4 border-t border-dark-700">
+                <div class="flex items-center gap-3 mb-4 px-2">
+                    <div class="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-xs font-bold text-white">U</div>
+                    <div class="hidden lg:block">
+                        <p class="text-sm font-bold text-white truncate" id="user-display-name">Cargando...</p>
+                        <p class="text-xs text-status-success">● Online</p>
+                    </div>
+                </div>
+                <a href="/logout" class="w-full flex items-center justify-center lg:justify-start p-2 text-status-danger hover:bg-status-danger/10 rounded-lg gap-2">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span class="hidden lg:inline text-sm font-medium">Salir</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full overflow-hidden bg-dark-900 relative">
+            
+            <div id="view-pos" class="view-section active h-full flex flex-col lg:flex-row">
+                <div class="flex-1 flex flex-col p-4 lg:p-6 gap-6 overflow-hidden relative">
+                    <div class="flex flex-col sm:flex-row gap-4 z-10 shrink-0">
+                        <input type="text" id="search-bar" placeholder="Buscar producto..." class="flex-1 bg-dark-800 text-white px-4 py-3 rounded-xl border border-dark-700 focus:border-brand-primary outline-none">
+                        <div class="flex gap-2">
+                            <button onclick="filterCategory('all')" class="px-4 py-3 bg-brand-primary text-white rounded-xl text-sm font-medium">Todos</button>
+                            <button onclick="filterCategory('ropa')" class="px-4 py-3 bg-dark-800 text-slate-300 border border-dark-700 rounded-xl text-sm">Ropa</button>
+                            <button onclick="filterCategory('accesorios')" class="px-4 py-3 bg-dark-800 text-slate-300 border border-dark-700 rounded-xl text-sm">Accesorios</button>
+                        </div>
+                    </div>
+                    <div id="product-grid" class="flex-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto pb-20">
+                        </div>
+                </div>
+
+                <div class="w-full lg:w-[400px] bg-dark-800 border-l border-dark-700 flex flex-col shadow-2xl z-20 shrink-0">
+                    <div class="p-5 border-b border-dark-700 flex justify-between items-center bg-dark-800">
+                        <h2 class="text-lg font-bold text-white"><i class="fa-solid fa-cart-shopping mr-2 text-brand-accent"></i> Ticket</h2>
+                        <button onclick="clearCart()" class="text-xs text-status-danger hover:text-red-400"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
+                    </div>
+                    <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+                    <div class="p-5 bg-dark-800 border-t border-dark-700">
+                        <div class="flex justify-between items-end mb-4">
+                            <span class="text-slate-300 font-semibold">Total</span>
+                            <span id="total" class="text-3xl font-bold text-white font-mono">$0.00</span>
+                        </div>
+                        <button id="pay-button" class="w-full bg-brand-primary hover:bg-brand-hover text-white py-3.5 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2">
+                            <span>Cobrar</span> <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-history" class="view-section h-full p-6 lg:p-10 overflow-hidden">
+                <h2 class="text-2xl font-bold text-white mb-6">Historial de Ventas</h2>
+                <div class="bg-dark-800 border border-dark-700 rounded-2xl overflow-hidden shadow-xl flex-1 flex flex-col">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="bg-dark-900/50 text-slate-400 text-xs uppercase font-semibold">
+                                <tr><th class="p-4">ID</th><th class="p-4">Fecha</th><th class="p-4">Total</th><th class="p-4">Método</th></tr>
+                            </thead>
+                            <tbody id="history-table-body" class="text-sm text-slate-300 divide-y divide-dark-700"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div id="checkout-modal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-dark-800 w-full max-w-md rounded-2xl border border-dark-700 flex flex-col">
+            <div class="bg-brand-primary p-6 text-white text-center">
+                <p class="text-sm uppercase">Total a Pagar</p>
+                <h2 id="modal-total" class="text-5xl font-bold font-mono">$0.00</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <div>
+                    <label class="text-sm text-slate-400">Recibido</label>
+                    <input type="number" id="received-amount" class="w-full bg-dark-900 border border-dark-700 rounded-xl py-4 px-4 text-2xl font-bold text-white text-right outline-none focus:border-brand-primary">
+                </div>
+                <div class="flex justify-between items-center bg-dark-900 p-4 rounded-xl">
+                    <span class="text-slate-400">Cambio</span>
+                    <span id="modal-change" class="text-3xl font-bold text-status-success font-mono">$0.00</span>
+                </div>
+                <button id="confirm-payment-button" class="w-full py-3 rounded-xl bg-status-success hover:bg-emerald-600 text-white font-bold text-lg">Confirmar Venta</button>
+                <button onclick="closeModal('checkout-modal')" class="w-full py-3 text-slate-400 hover:text-white">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- ESTADO ---
+        let productsDB = [];
+        let cart = [];
+        let currentFilter = 'all';
+
+        // --- INICIO ---
+        window.onload = async () => {
+            await loadUserData();
+            await loadProducts();
+        };
+
+        // --- API CALLS ---
+        async function loadUserData() {
+            try {
+                const res = await fetch('/api/me');
+                if(!res.ok) window.location.href = '/';
+                const user = await res.json();
+                document.getElementById('user-display-name').textContent = user.username;
+            } catch(e) { window.location.href = '/'; }
+        }
+
+        async function loadProducts() {
+            try {
+                const res = await fetch('/api/products');
+                productsDB = await res.json();
+                renderProducts();
+            } catch(e) { console.error("Error cargando productos"); }
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/sales');
+                const sales = await res.json();
+                const tbody = document.getElementById('history-table-body');
+                tbody.innerHTML = '';
+                sales.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="p-4 font-mono text-brand-primary">#${s.id}</td>
+                        <td class="p-4">${new Date(s.date).toLocaleString()}</td>
+                        <td class="p-4 font-bold text-white">$${s.total.toFixed(2)}</td>
+                        <td class="p-4"><span class="bg-dark-700 px-2 py-1 rounded text-xs">${s.method}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch(e) { console.error("Error historial"); }
+        }
+
+        async function saveSale(saleData) {
+            try {
+                const res = await fetch('/api/sales', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(saleData)
+                });
+                if(res.ok) {
+                    showToast("Venta registrada correctamente");
+                    cart = [];
+                    renderCart();
+                    closeModal('checkout-modal');
+                }
+            } catch(e) { alert("Error al guardar venta"); }
+        }
+
+        // --- LÓGICA VISUAL ---
+        function renderProducts() {
+            const grid = document.getElementById('product-grid');
+            grid.innerHTML = '';
+            const search = document.getElementById('search-bar').value.toLowerCase();
+            
+            const filtered = productsDB.filter(p => {
+                const matchSearch = p.name.toLowerCase().includes(search);
+                const matchCat = currentFilter === 'all' || p.category === currentFilter;
+                return matchSearch && matchCat;
+            });
+
+            filtered.forEach(p => {
+                const el = document.createElement('div');
+                el.className = 'bg-dark-800 border border-dark-700 rounded-2xl p-4 cursor-pointer hover:border-brand-primary transition-all group';
+                el.innerHTML = `
+                    <div class="aspect-square bg-dark-900 rounded-xl mb-3 overflow-hidden">
+                        <img src="${p.image}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100">
+                    </div>
+                    <h3 class="text-slate-200 text-sm font-medium truncate">${p.name}</h3>
+                    <p class="text-brand-accent font-bold font-mono">$${p.price.toFixed(2)}</p>
+                `;
+                el.onclick = () => addToCart(p);
+                grid.appendChild(el);
+            });
+        }
+
+        function addToCart(product) {
+            const exists = cart.find(i => i.id === product.id);
+            if(exists) exists.qty++;
+            else cart.push({...product, qty: 1});
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            container.innerHTML = '';
+            let total = 0;
+            cart.forEach(item => {
+                total += item.price * item.qty;
+                const el = document.createElement('div');
+                el.className = 'flex items-center gap-3 p-3 bg-dark-900/50 rounded-xl border border-dark-700';
+                el.innerHTML = `
+                    <div class="flex-1 min-w-0">
+                        <p class="text-white text-sm font-medium truncate">${item.name}</p>
+                        <p class="text-slate-500 text-xs">$${item.price.toFixed(2)} x ${item.qty}</p>
+                    </div>
+                    <div class="text-right w-16">
+                        <p class="text-white font-bold font-mono text-sm">$${(item.price * item.qty).toFixed(2)}</p>
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+            document.getElementById('total').textContent = `$${total.toFixed(2)}`;
+            document.getElementById('pay-button').disabled = total === 0;
+        }
+
+        // --- COBRO ---
+        document.getElementById('pay-button').onclick = () => {
+            if(cart.length === 0) return;
+            const total = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
+            document.getElementById('modal-total').textContent = `$${total.toFixed(2)}`;
+            document.getElementById('checkout-modal').classList.remove('hidden');
+        };
+
+        document.getElementById('received-amount').addEventListener('input', (e) => {
+            const total = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
+            const received = parseFloat(e.target.value) || 0;
+            const change = received - total;
+            const el = document.getElementById('modal-change');
+            el.textContent = change >= 0 ? `$${change.toFixed(2)}` : 'Faltan...';
+            el.className = change >= 0 ? "text-3xl font-bold text-status-success font-mono" : "text-3xl font-bold text-status-danger font-mono";
+            document.getElementById('confirm-payment-button').disabled = change < 0;
+        });
+
+        document.getElementById('confirm-payment-button').onclick = () => {
+            const total = cart.reduce((acc, i) => acc + i.price * i.qty, 0);
+            saveSale({ items: cart, total: total, method: 'Efectivo' });
+        };
+
+        // --- HELPERS ---
+        function switchView(view) {
+            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + view).classList.add('active');
+            if(view === 'history') loadHistory();
+        }
+        function filterCategory(cat) { currentFilter = cat; renderProducts(); }
+        function clearCart() { cart = []; renderCart(); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = 'bg-brand-primary text-white px-4 py-2 rounded shadow-lg';
+            t.textContent = msg;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(() => t.remove(), 3000);
+        }
+        document.getElementById('search-bar').addEventListener('input', renderProducts);
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Dependencias de Node (son miles de archivos, nunca se suben)
+node_modules/
+
+# Base de datos local (se crea sola al iniciar)
+users.db
+
+# Archivos de seguridad (Certificados SSL)
+*.pem
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs de errores
+npm-debug.log

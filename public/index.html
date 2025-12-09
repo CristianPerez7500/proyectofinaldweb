@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GettMex</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://www.google.com/recaptcha/api.js?onload=renderRecaptchas&render=explicit" async defer></script>
+</head>
+<body>
+
+    <div class="form-container">
+        
+        <div id="login-form">
+            <h2>Iniciar Sesión</h2>
+            <form onsubmit="handleLogin(event)">
+                <div class="input-group">
+                    <input type="text" id="login-username" class="input-field" required>
+                    <label for="login-username" class="input-label">Usuario (Email)</label>
+                    <span class="input-bar"></span>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="login-password" class="input-field" required>
+                    <label for="login-password" class="input-label">Contraseña</label>
+                    <span class="input-bar"></span>
+                </div>
+                
+                <div id="login-recaptcha"></div>
+                <br>
+                
+                <button type="submit">Ingresar</button>
+                <p id="login-message" class="message"></p>
+
+                <p style="text-align: center; margin-top: 15px; font-size: 0.85rem;">
+                    <a href="#" onclick="recoverPassword()" style="color: #00C9A7; text-decoration: none; font-weight: 500;">¿Olvidaste tu contraseña?</a>
+                </p>
+
+                <p class="toggle-link">¿No tienes una cuenta? <a href="#" onclick="toggleForms()">Crea una aquí</a></p>
+            </form>
+        </div>
+
+        <div id="register-form" class="hidden">
+            <h2>Crear Cuenta</h2>
+            <form onsubmit="handleRegister(event)">
+                <div class="input-group">
+                    <input type="text" id="reg-username" class="input-field" required>
+                    <label for="reg-username" class="input-label">Usuario (Email)</label>
+                    <span class="input-bar"></span>
+                </div>
+                <div class="input-group">
+                    <input type="password" id="reg-password" class="input-field" required>
+                    <label for="reg-password" class="input-label">Contraseña</label>
+                    <span class="input-bar"></span>
+                    <small style="color: rgba(255,255,255,0.5); font-size: 0.7rem; display: block; margin-top: 5px;">
+                        Mín. 8 caracteres, mayúscula, minúscula, especial y sin consecutivos.
+                    </small>
+                </div>
+
+                <div id="reg-recaptcha"></div>
+                <br>
+                
+                <button type="submit">Registrarse</button>
+                <p id="register-message" class="message"></p>
+                <p class="toggle-link">¿Ya tienes una cuenta? <a href="#" onclick="toggleForms()">Inicia sesión</a></p>
+            </form>
+        </div>
+
+        <p class="privacy-link">Revisa nuestro <a href="/privacy.html" target="_blank">Aviso de Privacidad</a>.</p>
+    </div>
+    
+    <script>
+        let loginWidgetId, regWidgetId;
+        
+        // 👇👇👇 ¡¡PON TU CLAVE DE SITIO AQUÍ OTRA VEZ!! 👇👇👇
+        const siteKey = "6LewYhssAAAAAF6if7J5Cnk8exworO1d0DL7y1WZ"; 
+
+        function renderRecaptchas() {
+            loginWidgetId = grecaptcha.render('login-recaptcha', { 'sitekey': siteKey });
+            regWidgetId = grecaptcha.render('reg-recaptcha', { 'sitekey': siteKey });
+        }
+
+        function toggleForms() {
+            document.getElementById('login-form').classList.toggle('hidden');
+            document.getElementById('register-form').classList.toggle('hidden');
+            document.querySelectorAll('.message').forEach(el => el.textContent = '');
+        }
+
+        // Validación de Password (Rúbrica Punto 4)
+        function validatePassword(p) {
+            if (p.length < 8) return "Mínimo 8 caracteres.";
+            if (!/[A-Z]/.test(p)) return "Falta una mayúscula.";
+            if (!/[a-z]/.test(p)) return "Falta una minúscula.";
+            if (!/[^a-zA-Z0-9]/.test(p)) return "Falta un carácter especial.";
+            if (/(012|123|234|345|456|567|678|789|987|876|765|654|543|432|321|210)/.test(p)) return "Sin números consecutivos.";
+            
+            const lower = p.toLowerCase();
+            for (let i = 0; i < lower.length - 2; i++) {
+                const [c1, c2, c3] = [lower.charCodeAt(i), lower.charCodeAt(i+1), lower.charCodeAt(i+2)];
+                if ((c1 + 1 === c2 && c2 + 1 === c3) || (c1 - 1 === c2 && c2 - 1 === c3)) return "Sin letras consecutivas.";
+            }
+            return null;
+        }
+
+        // Función Recuperar Contraseña (Rúbrica Punto 6)
+        async function recoverPassword() {
+            const email = prompt("Ingresa tu correo para recuperar contraseña:");
+            if (email) {
+                try {
+                    const res = await fetch('/api/recover-password', {
+                        method: 'POST', 
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ email })
+                    });
+                    const data = await res.json();
+                    alert(data.message);
+                } catch (e) { alert("Error al conectar con el servidor."); }
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const u = document.getElementById('reg-username').value;
+            const p = document.getElementById('reg-password').value;
+            const msg = document.getElementById('register-message');
+            
+            const err = validatePassword(p);
+            if (err) { msg.textContent = err; msg.style.color = '#F44336'; return; }
+
+            const captcha = grecaptcha.getResponse(regWidgetId);
+            if (!captcha) { msg.textContent = "Completa el CAPTCHA."; msg.style.color = '#F44336'; return; }
+
+            try {
+                const res = await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p, 'g-recaptcha-response': captcha })
+                });
+                const data = await res.json();
+                msg.textContent = data.message;
+                msg.style.color = res.ok ? '#4CAF50' : '#F44336';
+                if(res.ok) { e.target.reset(); grecaptcha.reset(regWidgetId); }
+            } catch (e) { msg.textContent = 'Error de conexión.'; }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const u = document.getElementById('login-username').value;
+            const p = document.getElementById('login-password').value;
+            const msg = document.getElementById('login-message');
+            
+            const captcha = grecaptcha.getResponse(loginWidgetId);
+            if (!captcha) { msg.textContent = "Completa el CAPTCHA."; msg.style.color = '#F44336'; return; }
+
+            try {
+                const res = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p, 'g-recaptcha-response': captcha })
+                });
+                if (res.ok) {
+                    msg.textContent = 'Entrando...'; msg.style.color = '#4CAF50';
+                    setTimeout(() => window.location.href = '/dashboard', 1000);
+                } else {
+                    const data = await res.json();
+                    msg.textContent = data.message; msg.style.color = '#F44336';
+                    grecaptcha.reset(loginWidgetId);
+                }
+            } catch (e) { msg.textContent = 'Error de conexión.'; }
+        }
+    </script>
+</body>
+</html>
