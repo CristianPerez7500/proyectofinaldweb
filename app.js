@@ -235,7 +235,8 @@ app.post('/login', (req, res) => {
 app.get('/logout', (req, res) => { req.session ? req.session.destroy(() => res.redirect('/')) : res.redirect('/'); });
 app.get('/dashboard', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
-const httpsOptions = { key: fs.readFileSync('key.pem'), cert: fs.readFileSync('cert.pem') };
-https.createServer(httpsOptions, app).listen(port, () => {
-    console.log(`Servidor HTTPS escuchando en https://localhost:${port}`);
+// En la nube, Render nos da el puerto y maneja el HTTPS automáticamente.
+// Solo necesitamos escuchar en modo HTTP normal.
+app.listen(port, () => {
+    console.log(`Servidor corriendo en el puerto ${port}`);
 });
