@@ -133,7 +133,7 @@ app.delete('/api/users/:id', requireLogin, requireAdmin, (req, res) => {
 // 1. REGISTRO + CORREO ACTIVACIÓN
 app.post('/register', async (req, res) => {
     const { username, password, 'g-recaptcha-response': captchaResponse } = req.body;
-    const secretKey = '6LewYhssAAAAAL8X2VOqnewU8Vf0t6-3ahlhgE2n'; // TU CLAVE SECRETA
+    const secretKey = '6LfBqiUsAAAAAJMFN976FIerb814sPogOULwvg6-'; // TU CLAVE SECRETA
 
     try {
         const verificationURL = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}&remoteip=${req.connection.remoteAddress}`;
@@ -235,8 +235,7 @@ app.post('/login', (req, res) => {
 app.get('/logout', (req, res) => { req.session ? req.session.destroy(() => res.redirect('/')) : res.redirect('/'); });
 app.get('/dashboard', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
-// En la nube, Render nos da el puerto y maneja el HTTPS automáticamente.
-// Solo necesitamos escuchar en modo HTTP normal.
+// En la nube (Render) usamos HTTP normal, ellos ponen el candadito seguro
 app.listen(port, () => {
-    console.log(`Servidor corriendo en el puerto ${port}`);
+    console.log(`Servidor corriendo en puerto ${port}`);
 });
