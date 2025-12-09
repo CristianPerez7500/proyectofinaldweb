@@ -1,4 +1,4 @@
-// app.js - SISTEMA COMPLETO (POS + Login + Correos + Recuperación)
+// app.js - VERSIÓN FINAL DEPURADA (Con logs para cazar el error)
 const express = require('express');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
@@ -11,6 +11,7 @@ const os = require('os');
 const nodemailer = require('nodemailer');
 
 const app = express();
+// En Render el puerto nos lo da el sistema
 const port = process.env.PORT || 3000;
 const saltRounds = 10;
 
@@ -28,7 +29,6 @@ app.use(session({
 
 // --- CONFIGURACIÓN DE CORREO (ETHEREAL) ---
 let transporter;
-
 async function createTestAccount() {
     try {
         let testAccount = await nodemailer.createTestAccount();
@@ -71,7 +71,7 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
-// --- APIS POS Y SISTEMA ---
+// --- APIS ---
 app.get('/api/server-status', requireLogin, (req, res) => {
     const totalMem = os.totalmem();
     const freeMem = os.freemem();
@@ -113,7 +113,6 @@ app.get('/api/me', requireLogin, (req, res) => {
     res.json({ username: req.session.username, role: req.session.role });
 });
 
-// --- API USUARIOS (ADMIN) ---
 app.get('/api/users', requireLogin, requireAdmin, (req, res) => {
     db.all("SELECT id, username, role FROM users", [], (err, rows) => res.json(rows));
 });
@@ -130,15 +129,22 @@ app.delete('/api/users/:id', requireLogin, requireAdmin, (req, res) => {
 
 // --- RUTAS DE AUTENTICACIÓN ---
 
-// 1. REGISTRO + CORREO ACTIVACIÓN
 app.post('/register', async (req, res) => {
     const { username, password, 'g-recaptcha-response': captchaResponse } = req.body;
-    const secretKey = '6LfBqiUsAAAAAJMFN976FIerb814sPogOULwvg6-'; // TU CLAVE SECRETA
+    
+    // ⚠️ ¡PON AQUÍ TU CLAVE SECRETA NUEVA (LA DE RENDER)!
+    const secretKey = '6LfBqiUsAAAAAJMFN976FIerb814sPogOULwvg6-'; 
 
     try {
+        // URL sin remoteip para evitar problemas en la nube
         const verificationURL = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}`;
+        
         const captchaVerification = await axios.post(verificationURL);
-        if (!captchaVerification.data.success) return res.status(400).json({ message: 'Captcha inválido.' });
+        
+        if (!captchaVerification.data.success) {
+            console.log("Error Captcha Registro:", captchaVerification.data);
+            return res.status(400).json({ message: 'Captcha inválido.' });
+        }
 
         db.get("SELECT COUNT(*) as count FROM users", async (err, row) => {
             const isFirstUser = (row.count === 0);
@@ -157,13 +163,12 @@ app.post('/register', async (req, res) => {
                 `;
                 await sendEmail(username, "Activa tu cuenta - GettMex", emailHtml);
                 
-                res.status(201).json({ message: `Registrado. Revisa la consola del servidor para ver el correo.` });
+                res.status(201).json({ message: `Registrado. Revisa la consola para el correo.` });
             });
         });
     } catch (error) { res.status(500).json({ message: 'Error servidor.' }); }
 });
 
-// 2. RECUPERAR PASSWORD (SOLICITUD)
 app.post('/api/recover-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: "Falta el correo." });
@@ -173,11 +178,8 @@ app.post('/api/recover-password', async (req, res) => {
 
         const emailHtml = `
             <h2>Recuperación de Contraseña</h2>
-            <p>Has solicitado cambiar tu contraseña para: <b>${email}</b></p>
-            <p>Haz clic en el siguiente enlace para crear una nueva:</p>
-            <a href="https://localhost:3000/reset-password.html">CLICK AQUÍ PARA RESTABLECER</a>
-            <br>
-            <p>Si no fuiste tú, ignora este mensaje.</p>
+            <p>Has solicitado cambiar tu contraseña.</p>
+            <p><a href="https://proyectofinaldweb.onrender.com/reset-password.html">CLICK AQUÍ PARA RESTABLECER</a></p>
         `;
         
         await sendEmail(email, "Restablecer Password - GettMex", emailHtml);
@@ -185,36 +187,39 @@ app.post('/api/recover-password', async (req, res) => {
     });
 });
 
-// 3. ACTUALIZAR PASSWORD (NUEVA RUTA)
 app.post('/api/update-password', async (req, res) => {
     const { email, newPassword } = req.body;
-    
-    if (!email || !newPassword) {
-        return res.status(400).json({ message: "Faltan datos." });
-    }
-
+    if (!email || !newPassword) return res.status(400).json({ message: "Faltan datos." });
     try {
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
         db.run("UPDATE users SET password = ? WHERE username = ?", [hashedPassword, email], function(err) {
             if (err) return res.status(500).json({ message: "Error al actualizar." });
             if (this.changes === 0) return res.status(404).json({ message: "Usuario no encontrado." });
-            
             res.json({ message: "Contraseña actualizada correctamente." });
         });
-    } catch (error) {
-        res.status(500).json({ message: "Error del servidor." });
-    }
+    } catch (error) { res.status(500).json({ message: "Error del servidor." }); }
 });
 
-// 4. LOGIN
+// --- LOGIN CON DEPURACIÓN ---
 app.post('/login', (req, res) => {
     const { username, password, 'g-recaptcha-response': captchaResponse } = req.body;
-    const secretKey = '6LewYhssAAAAAL8X2VOqnewU8Vf0t6-3ahlhgE2n'; // TU CLAVE SECRETA
+    
+    // ⚠️ ¡PON AQUÍ TU CLAVE SECRETA NUEVA (LA DE RENDER)!
+    const secretKey = '6LfBqiUsAAAAAJMFN976FIerb814sPogOULwvg6-'; 
 
-    axios.post(`https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}`)
+    console.log("--> Intentando verificar Captcha..."); 
+
+    // URL sin remoteip para evitar bloqueos
+    const verificationURL = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${captchaResponse}`;
+
+    axios.post(verificationURL)
         .then(response => {
-            if (!response.data.success) return res.status(400).json({ message: 'Captcha inválido.' });
+            // 👇 CHISMOSO ACTIVADO: ESTO SALDRÁ EN LOS LOGS 👇
+            console.log("🔥 RESPUESTA DE GOOGLE:", response.data); 
+
+            if (!response.data.success) {
+                return res.status(400).json({ message: 'Captcha inválido. Revisa logs.' });
+            }
 
             db.get(`SELECT * FROM users WHERE username = ?`, [username], async (err, user) => {
                 if (!user) return res.status(401).json({ message: 'Credenciales inválidas.' });
@@ -229,13 +234,16 @@ app.post('/login', (req, res) => {
                 }
             });
         })
-        .catch(() => res.status(500).json({ message: 'Error captcha.' }));
+        .catch((e) => {
+            console.error("Error conexión Google:", e);
+            res.status(500).json({ message: 'Error captcha.' });
+        });
 });
 
 app.get('/logout', (req, res) => { req.session ? req.session.destroy(() => res.redirect('/')) : res.redirect('/'); });
 app.get('/dashboard', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard.html')));
 
-// En la nube (Render) usamos HTTP normal, ellos ponen el candadito seguro
+// EN LA NUBE USAMOS HTTP NORMAL (Render pone el HTTPS)
 app.listen(port, () => {
-    console.log(`Servidor corriendo en puerto ${port}`);
+    console.log(`Servidor corriendo en el puerto ${port}`);
 });
